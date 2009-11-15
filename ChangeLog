@@ -1,0 +1,2 @@
+2007-01-04  Vincet Cruz      <cruz.vincent@gmail.com>
+        * src/contrib/ips.c Fixed offset check.
