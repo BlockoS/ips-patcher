@@ -18,7 +18,7 @@ void IPSReset(struct IPSPatch *ips)
 /*
  * Open and check patch file
  */
-int8_t IPSOpenPatch(struct IPSPatch *ips, const char *fileName)
+IPSResult IPSOpenPatch(struct IPSPatch *ips, const char *fileName)
 {
 	char   header[5];
 	size_t nRead;
@@ -53,16 +53,15 @@ int8_t IPSOpenPatch(struct IPSPatch *ips, const char *fileName)
 /*
  * Open rom and make a backup of it 
  */
-int8_t IPSOpenInOUT(struct IPSPatch *ips,
-                    const char *romName)
+IPSResult IPSOpenInOUT(struct IPSPatch *ips,
+                       const char *romName)
 {
-	int      err;
-	char     backupFileName[64];
-	uint32_t backupFileExtOffset;
-	FILE     *backup;
-	long     nTotal;
-	size_t   nRead;
-	char     buffer[256];
+	char      backupFileName[64];
+	uint32_t  backupFileExtOffset;
+	FILE      *backup;
+	long      nTotal;
+	size_t    nRead;
+	char      buffer[256];
 
 	if(romName == NULL)
 	{
@@ -128,11 +127,11 @@ int8_t IPSOpenInOUT(struct IPSPatch *ips,
 /*
  * Open rom and patch
  */
-int8_t IPSOpen(struct IPSPatch *ips,
-               const char *patchName,
-               const char *romName)
+IPSResult IPSOpen(struct IPSPatch *ips,
+                  const char *patchName,
+                  const char *romName)
 {
-	int8_t err;
+	IPSResult res;
 	
 	ips->patch = NULL;
 	
@@ -142,32 +141,18 @@ int8_t IPSOpen(struct IPSPatch *ips,
 	ips->record.offset = 0;
 	ips->record.size   = 0;
 	
-	err = IPSOpenPatch(ips, patchName);
-	if(err != IPS_OK)
+	res = IPSOpenPatch(ips, patchName);
+	if(res == IPS_OK)
 	{
-		goto error;
+		res = IPSOpenInOUT(ips, romName);
 	}
 	
-	err = IPSOpenInOUT(ips, romName);
-	if(err != IPS_OK)
+	if(res != IPS_OK)
 	{
-		goto error;
+		IPSClose(ips);
 	}
-		
-	return IPS_OK;
-error:
-	if(ips->patch != NULL)
-	{
-		fclose(ips->patch);
-	}
-	if(ips->rom != NULL)
-	{
-		fclose(ips->rom);
-	}
-	ips->patch = NULL;
-	ips->rom   = NULL;
-
-	return IPS_ERROR_OPEN;
+	
+	return res;
 }
 
 /*
@@ -191,7 +176,7 @@ void IPSClose(struct IPSPatch *ips)
 /*
  * Read IPS record from file
  */
-int8_t IPSReadRecord(struct IPSPatch *ips)
+IPSResult IPSReadRecord(struct IPSPatch *ips)
 {
 	uint8_t buffer[5];
 	size_t  nRead;
@@ -251,7 +236,7 @@ int8_t IPSReadRecord(struct IPSPatch *ips)
 /*
  * Process current record
  */
-int8_t IPSProcessRecord (struct IPSPatch *ips)
+IPSResult IPSProcessRecord (struct IPSPatch *ips)
 {
 	uint32_t i;
 	uint8_t  byte;
