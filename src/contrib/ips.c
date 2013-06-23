@@ -1,3 +1,4 @@
+#include <string.h>
 #include "ips.h"
 
 /* 
@@ -271,6 +272,96 @@ IPSResult IPSProcessRecord (struct IPSPatch *ips)
 	{
 		ips->romSize += ips->record.size;
 	}
+	
+	return IPS_OK;
+}
+
+/*
+ * Open the file and write IPS header in it.
+ */
+IPSResult IPSWriteBegin( FILE** out, char* filename )
+{
+	const char buffer[5] = { 'P', 'A', 'T', 'C', 'H' };
+	size_t nWritten;
+	
+	*out = fopen( filename, "wb" );
+	if( *out == NULL )
+	{
+		return IPS_ERROR_OPEN;
+	}
+	
+	fseek( *out, 0, SEEK_SET );
+	
+	nWritten = fwrite( buffer, 1, 5, *out );
+	if( nWritten != 5 )
+	{
+		return IPS_ERROR_WRITE;
+	}
+	
+	return IPS_OK;
+}
+
+/*
+ * Append a new record to IPS file
+ */
+IPSResult IPSWriteRecord ( FILE* out, uint32_t offset, uint16_t size, uint8_t *data )
+{
+	uint8_t buffer[5];
+	size_t  nWritten;
+	
+	if( out == NULL )
+	{
+		return IPS_ERROR;
+	}
+	
+	/* serialize offset */
+	buffer[0] = (offset >> 16) & 0xff;
+	buffer[1] = (offset >>  8) & 0xff;
+	buffer[2] = (offset      ) & 0xff;
+	
+	/* ... and data size */
+	buffer[3] = (size >> 8);
+	buffer[4] = (size     ) & 0xff;
+	
+	nWritten = fwrite( buffer, 1, 5, out );
+	if( nWritten != 5 )
+	{
+		return IPS_ERROR_WRITE;
+	}
+
+	/* write data */
+	nWritten = fwrite( data, 1, size, out );
+	if( nWritten != size )
+	{
+		return IPS_ERROR_WRITE;
+	}
+	
+	return IPS_OK;
+}
+
+/*
+ * Write IPS footer and close file.
+ */
+IPSResult IPSWriteEnd( FILE** out )
+{
+	const char endStr[3] = { 'E', 'O', 'F' };
+	size_t nWritten;
+	
+	if( *out == NULL )
+	{
+		fclose( *out );
+		*out = NULL;
+		return IPS_ERROR;
+	}
+	
+	nWritten = fwrite( endStr, 1, 3, *out );
+	if( nWritten != 3 )
+	{
+		return IPS_ERROR_WRITE;
+	}
+	
+	fclose( *out );
+	*out = NULL;
 	
 	return IPS_OK;
 }
