@@ -1,188 +1,187 @@
 #include <string.h>
 #include "ips.h"
 
-/* 
- * Reset ips patch structure
+#define IPS_HEADER_LEN 5
+
+#define IPS_RECORD_OFFSET(record) ((record).offset & 0x00ffffff)
+#define IPS_RECORD_INFO(record) (((record).offset >> 24) & 0xff)
+#define IPS_RECORD_RLE 1
+
+/**
+ * IPS patch helper.
  */
-void IPSReset(struct IPSPatch *ips)
+struct IPSPatch
 {
-	ips->patch = NULL;	
-	
-	ips->rom      = NULL;
-	ips->romSize  = 0;
-	
-	ips->record.offset  = 0;
-	ips->record.size    = 0;
-	ips->record.rleData = 0;
+	FILE   *source; /**< IPS file */
+    size_t size;    /**< IPS file size */
+    int    status;  /**< IPS patch status (0=read, 1=write) */
+};
+
+void IPSCleanup(struct IPSPatch *patch)
+{
+    patch->size = 0;
+    if(patch->source != NULL)
+    {
+        fclose(patch->source);
+        patch->source = NULL;
+    }
 }
 
-/*
- * Open and check patch file
- */
-IPSResult IPSOpenPatch(struct IPSPatch *ips, const char *fileName)
+IPSResult IPSWriteHeader(struct IPSPatch *patch)
 {
-	char   header[5];
-	size_t nRead;
-	
-	ips->patch = fopen(fileName, "rb");
-	if(ips->patch == NULL)
-	{
-		return IPS_ERROR;
-	}
-	
-	fseek(ips->patch, 0, SEEK_SET);
-	
-	/* Read header and check it */
-	nRead = fread(header, 1, 5, ips->patch);
-	if(nRead != 5)
-	{
-		return IPS_ERROR_FILE_TYPE;
-	}
-	
-	if((header[0] != 'P') ||
-	   (header[1] != 'A') ||
-	   (header[2] != 'T') ||
-	   (header[3] != 'C') ||
-	   (header[4] != 'H'))
-	{
-		return IPS_ERROR_FILE_TYPE;
-	}
-	
-	return IPS_OK;
+    size_t nWritten;
+    const char header[IPS_HEADER_LEN] = { 'P', 'A', 'T', 'C', 'H' };
+    nWritten = fwrite(header, 1, IPS_HEADER_LEN, patch->source);
+    if(nWritten != IPS_HEADER_LEN)
+    {
+        return IPS_ERROR_WRITE;
+    }
+    return IPS_OK;
 }
 
-/*
- * Open rom and make a backup of it 
- */
-IPSResult IPSOpenInOUT(struct IPSPatch *ips,
-                       const char *romName)
+IPSResult IPSReadRLE(struct IPSPatch *patch, struct IPSRecord *record, uint8_t *data)
 {
-	char      backupFileName[64];
-	uint32_t  backupFileExtOffset;
-	FILE      *backup;
-	long      nTotal;
-	size_t    nRead;
-	char      buffer[256];
-
-	if(romName == NULL)
-	{
-		return IPS_ERROR;
-	}
-
-	/* Create backup file name */
-	strncpy(backupFileName, romName, 52);
-		
-	backupFileExtOffset = strlen(romName);
-	if(backupFileExtOffset > 52)
-	{
-		backupFileExtOffset = 52;
-	}
-		
-	backupFileName[backupFileExtOffset++] = '.';
-	backupFileName[backupFileExtOffset++] = 's';
-	backupFileName[backupFileExtOffset++] = 'a';
-	backupFileName[backupFileExtOffset++] = 'v';
-	backupFileName[backupFileExtOffset++] = '\0';
-		
-	/* Open rom */
-	ips->rom = fopen(romName, "rb+");
-	if(ips->rom == NULL)
-	{
-		return IPS_ERROR;
-	}
-	
-	/* Get its size */
-	fseek(ips->rom, 0, SEEK_END);
-	nTotal  = ftell(ips->rom);
-	fseek(ips->rom, 0, SEEK_SET);
-	nTotal -= ftell(ips->rom);
-	
-	ips->romSize = (uint32_t)nTotal;
-	if(nTotal <= 0)
-	{
-		return IPS_ERROR;
-	}
-
-	/* Open backup */
-	backup = fopen(backupFileName, "wb");
-	if(backup == NULL)
-	{
-		return IPS_ERROR;
-	}
-	
-	/* A copy rom data to it */
-	fseek(backup, 0, SEEK_SET);
-	for(nTotal=0; nTotal<ips->romSize; nTotal+=nRead)
-	{
-		nRead = fread(buffer, 1, 256, ips->rom);
-		fwrite(buffer, 1, nRead, backup);
-	}		
-	fclose(backup);
-
-	/* Reset rom file pointer */
-	fseek(ips->rom, 0, SEEK_SET);
-	
-	return IPS_OK;
+    uint8_t buffer[2];
+    size_t nRead;
+    
+    /* Read RLE size */
+    nRead = fread(buffer, 1, 2, patch->source);
+    if(nRead < 2)
+    {
+        return IPS_ERROR_READ;
+    }
+    record->size = (buffer[0] << 8) | 
+                   (buffer[1]     );
+    
+    /* Read byte data to copy */
+    nRead = fread(data, 1, 1, patch->source);
+    if(nRead < 1)
+    {
+        return IPS_ERROR_READ;
+    }
+    return IPS_OK;
 }
 
-/*
- * Open rom and patch
+/**
+ * Open IPS patch.
  */
-IPSResult IPSOpen(struct IPSPatch *ips,
-                  const char *patchName,
-                  const char *romName)
+IPSResult IPSOpen(struct IPSPatch *patch, const char *filename)
 {
-	IPSResult res;
-	
-	ips->patch = NULL;
-	
-	ips->rom     = NULL;
-	ips->romSize = 0;
-		
-	ips->record.offset = 0;
-	ips->record.size   = 0;
-	
-	res = IPSOpenPatch(ips, patchName);
-	if(res == IPS_OK)
+    char buffer[IPS_HEADER_LEN];
+    size_t nRead;
+    IPSResult res = IPS_OK;
+    
+    patch->source = fopen(filename, "rb+");
+    if(patch->source == NULL)
+    {
+        res = IPS_ERROR_OPEN;
+        /* Try to create file if it doesn't exist. */
+        patch->source = fopen(filename, "wb");
+        if(patch->source != NULL)
+        {
+            patch->status = 1;
+            
+            /* Write header. */
+            res = IPSWriteHeader(patch);
+        }
+        return res;
+    }
+
+    patch->status = 0;
+    
+    fseek(patch->source, 0, SEEK_END);
+    patch->size  = ftell(patch->source);
+    fseek(patch->source, 0, SEEK_SET);
+    patch->size -= ftell(patch->source);
+    
+    /* Read header and check it */
+	nRead = fread(buffer, 1, IPS_HEADER_LEN, patch->source);
+	if(nRead != IPS_HEADER_LEN)
 	{
-		res = IPSOpenInOUT(ips, romName);
+    
+		res = IPS_ERROR_FILE_TYPE;
 	}
 	
-	if(res != IPS_OK)
-	{
-		IPSClose(ips);
-	}
-	
+    if(res == IPS_OK)
+    {
+        if((buffer[0] != 'P') ||
+           (buffer[1] != 'A') ||
+           (buffer[2] != 'T') ||
+           (buffer[3] != 'C') ||
+           (buffer[4] != 'H'))
+        {
+            res = IPS_ERROR_FILE_TYPE;
+        }
+    }
+    
+    if(res != IPS_OK)
+    {
+        IPSCleanup(patch);
+    }
 	return res;
 }
 
-/*
- * Close patch and rom files 
+/**
+ * Close IPS patch.
  */
-void IPSClose(struct IPSPatch *ips)
+IPSResult IPSClose(struct IPSPatch *patch)
 {
-	if(ips->rom!= NULL)
-	{
-		fclose(ips->rom);
-		ips->rom = NULL;
-	}
-	
-	if(ips->patch != NULL)
-	{
-		fclose(ips->patch);
-		ips->patch = NULL;
-	}
+    IPSResult res = IPS_OK;
+    if(patch->status)
+    {
+        char buffer[3] = { 'E', 'O', 'F' };
+        size_t nWritten;
+        
+        nWritten = fwrite(buffer, 1, 3, patch->source);
+        if(nWritten != 3)
+        {
+            res = IPS_ERROR_WRITE;
+        }
+    }
+    IPSCleanup(patch);
+    return res;
 }
 
-/*
- * Read IPS record from file
+/**
+ * Get the number of records stored in the patch.
  */
-IPSResult IPSReadRecord(struct IPSPatch *ips)
+IPSResult IPSGetRecordCount(struct IPSPatch *patch, int *count)
 {
-	uint8_t buffer[5];
+    struct IPSRecord record;
+    IPSResult res = IPS_OK;
+    off_t backup = ftell(patch->source);
+    
+    *count = 0;
+    
+    /* Jump after IPS header. */
+    fseek(patch->source, IPS_HEADER_LEN, SEEK_SET);
+    
+    while( (res = IPSReadInfos(patch, &record)) == IPS_OK )
+    {
+        *count += 1;
+    }
+    
+    if(res == IPS_PATCH_END)
+    {
+        res = IPS_OK;
+    }
+    
+    /* Put file pointer back. */
+    fseek(patch->source, backup, SEEK_SET);
+    return res;
+}
+
+/**
+ * Read record infos.
+ * The next call will fetch the next record.
+ */
+IPSResult IPSReadInfos(struct IPSPatch *patch, struct IPSRecord *record)
+{
+    uint8_t buffer[5];
 	size_t  nRead;
+    off_t   offset;
 	
-	nRead = fread(buffer, 1, 3, ips->patch);
+	nRead = fread(buffer, 1, 3, patch->source);
 	if(nRead < 3)
 	{
 		return IPS_ERROR_READ;
@@ -196,125 +195,91 @@ IPSResult IPSReadRecord(struct IPSPatch *ips)
 	}
 	
 	/* Retrieve rom offset */
-	ips->record.offset = (buffer[0] << 16) | 
-	                     (buffer[1] <<  8) |
-	                     (buffer[2]      );
+	record->offset = (buffer[0] << 16) | 
+	                 (buffer[1] <<  8) |
+	                 (buffer[2]      );
 	
 	/* Data size */
-	nRead = fread(buffer, 1, 2, ips->patch);
+	nRead = fread(buffer, 1, 2, patch->source);
 	if(nRead < 2)
 	{
 		return IPS_ERROR_READ;
 	}
-	ips->record.size = (buffer[0] << 8) | 
-	                   (buffer[1]     );
+	record->size = (buffer[0] << 8) | 
+	               (buffer[1]     );
 
+    record->data = ftell(patch->source);
+                   
 	/* We have a RLE section if data size is zero */
-	if(ips->record.size == 0)
+	if(record->size == 0)
 	{
-		ips->record.offset |= IPS_RECORD_RLE << 24;
-		
-		/* Read RLE size */
-		nRead = fread(buffer, 1, 2, ips->patch);
-		if(nRead < 2)
-		{
-			return IPS_ERROR_READ;
-		}
-		ips->record.size = (buffer[0] << 8) | 
-		                   (buffer[1]     );
-		
-		/* Read byte data to copy */
-		nRead = fread(&(ips->record.rleData), 1, 1, ips->patch);
-		if(nRead < 1)
-		{
-			return IPS_ERROR_READ;
-		}
+        record->offset |= IPS_RECORD_RLE << 24;
+        offset = 3; 
 	}
-	
+    else
+    {
+        offset = record->size;
+    }
+    
+    /* Move to next record. */
+    fseek(patch->source, offset, SEEK_CUR);
+    
 	return IPS_OK;
 }
 
-/*
- * Process current record
+/**
+ * Read record data.
  */
-IPSResult IPSProcessRecord (struct IPSPatch *ips)
+IPSResult IPSReadData(struct IPSPatch *patch, struct IPSRecord *record, uint8_t *data)
 {
-	uint32_t i;
-	uint8_t  byte;
-	uint32_t offset;
-
-	offset = IPS_RECORD_OFFSET(ips->record);
-	if(offset > ips->romSize)
-	{
-		return IPS_ERROR_OFFSET;
-	}
-
-	fseek(ips->rom, offset, SEEK_SET);
-	
-	if(IPS_RECORD_INFO(ips->record) == IPS_RECORD_RLE)
-	{
-		for(i=0; i<ips->record.size; ++i)
-		{
-			fwrite(&(ips->record.rleData), 1, 1, ips->rom);
-		}
-	}
-	else
-	{	
-		for(i=0; i<ips->record.size; ++i)
-		{
-			fread (&byte, 1, 1, ips->patch);
-			fwrite(&byte, 1, 1, ips->rom);
-		}
-	}
-
-	/* Update rom size if needed */
-	if((offset + ips->record.size) > ips->romSize)
-	{
-		ips->romSize += ips->record.size;
-	}
-	
-	return IPS_OK;
+    IPSResult res = IPS_OK;
+    
+    fseek(patch->source, record->data, SEEK_SET);
+    if(IPS_RECORD_INFO(*record) == IPS_RECORD_RLE)
+    {
+        res = IPSReadRLE(patch, record, data);
+    }
+    else
+    {
+        size_t nRead;
+        nRead = fread(data, 1, record->size, patch->source);
+        if(nRead != record->size)
+        {
+            res = IPS_ERROR_READ;
+        }
+    }
+    
+    return res;
 }
 
-/*
- * Open the file and write IPS header in it.
+/**
+ * Add a record to ips file.
  */
-IPSResult IPSWriteBegin( FILE** out, char* filename )
+IPSResult IPSAddRecord(struct IPSPatch *patch, uint32_t offset, uint16_t size, const uint8_t* data)
 {
-	const char buffer[5] = { 'P', 'A', 'T', 'C', 'H' };
-	size_t nWritten;
-	
-	*out = fopen( filename, "wb" );
-	if( *out == NULL )
-	{
-		return IPS_ERROR_OPEN;
-	}
-	
-	fseek( *out, 0, SEEK_SET );
-	
-	nWritten = fwrite( buffer, 1, 5, *out );
-	if( nWritten != 5 )
-	{
-		return IPS_ERROR_WRITE;
-	}
-	
-	return IPS_OK;
-}
+    uint8_t buffer[5];
+    size_t  nWritten;
+  
+    if(patch->status == 0)
+    {
+        IPSResult res;
+        struct IPSRecord record;
+        
+        /* Search for last record. */
+        fseek(patch->source, IPS_HEADER_LEN, SEEK_SET);
+        while( (res = IPSReadInfos(patch, &record)) == IPS_OK )
+        {}
+        if(res != IPS_PATCH_END)
+        {
+            return res;
+        }
+        /* Rewind in order to overwrite the EOF record. */
+        fseek(patch->source, -3, SEEK_CUR);
+    }
 
-/*
- * Append a new record to IPS file
- */
-IPSResult IPSWriteRecord ( FILE* out, uint32_t offset, uint16_t size, uint8_t *data )
-{
-	uint8_t buffer[5];
-	size_t  nWritten;
-	
-	if( out == NULL )
-	{
-		return IPS_ERROR;
-	}
-	
-	/* serialize offset */
+    patch->status = 1;
+    
+    /* Serialize offset */
 	buffer[0] = (offset >> 16) & 0xff;
 	buffer[1] = (offset >>  8) & 0xff;
 	buffer[2] = (offset      ) & 0xff;
@@ -323,45 +288,30 @@ IPSResult IPSWriteRecord ( FILE* out, uint32_t offset, uint16_t size, uint8_t *d
 	buffer[3] = (size >> 8);
 	buffer[4] = (size     ) & 0xff;
 	
-	nWritten = fwrite( buffer, 1, 5, out );
+	nWritten = fwrite( buffer, 1, 5, patch->source );
 	if( nWritten != 5 )
 	{
 		return IPS_ERROR_WRITE;
 	}
 
-	/* write data */
-	nWritten = fwrite( data, 1, size, out );
+	/* Write data. */
+	nWritten = fwrite( data, 1, size, patch->source );
 	if( nWritten != size )
 	{
 		return IPS_ERROR_WRITE;
-	}
-	
-	return IPS_OK;
+	}	
+    
+    return IPS_OK;
 }
 
-/*
- * Write IPS footer and close file.
+// [todo]
+
+/**
+ * Jump to a given record.
  */
-IPSResult IPSWriteEnd( FILE** out )
-{
-	const char endStr[3] = { 'E', 'O', 'F' };
-	size_t nWritten;
-	
-	if( *out == NULL )
-	{
-		fclose( *out );
-		*out = NULL;
-		return IPS_ERROR;
-	}
-	
-	nWritten = fwrite( endStr, 1, 3, *out );
-	if( nWritten != 3 )
-	{
-		return IPS_ERROR_WRITE;
-	}
-	
-	fclose( *out );
-	*out = NULL;
-	
-	return IPS_OK;
-}
+//IPSResult IPSSeekTo(struct IPSPatch *patch, off_t record, IPSWhence whence);
+
+/**
+ * Apply IPS patch to target file.
+ */
+//IPSResult IPSApply(const char *patchFilename, const char *targetFilename);

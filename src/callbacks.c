@@ -47,36 +47,21 @@ process_patch (void *user_data)
 	{
 		if((romFileName != NULL) && (patchFileName != NULL))
 		{	
-			/* Open files and make a backup of the rom */
-			err = IPSOpen(patch,
-			              patchFileName,
-                          romFileName);
+			/* Make a backup of the rom */
+            /* [todo] */
 
-			if(err == IPS_OK)
-			{
-				/* Process patcj */
-				while(err == IPS_OK)
-				{
-					err = IPSReadRecord(patch);
-					if(err == IPS_OK)
-					{
-						err = IPSProcessRecord (patch);
-					}
-				}
-
-				IPSClose(patch);
-
-				/* If everything was ok open a greeting dialog */
-				if(err == IPS_PATCH_END)
-				{
-					doneDialog =  create_doneDialog();	
-					gtk_widget_show(doneDialog);
-					
-					gtk_widget_set_sensitive ( GTK_WIDGET(user_data), TRUE );
-					gdk_threads_leave ();
-					return NULL;
-				}
-			}
+            err = IPSApply(patchFileName, romFileName);
+            
+            /* If everything was ok open a greeting dialog */
+            if(err == OK)
+            {
+                doneDialog =  create_doneDialog();	
+                gtk_widget_show(doneDialog);
+                
+                gtk_widget_set_sensitive ( GTK_WIDGET(user_data), TRUE );
+                gdk_threads_leave ();
+                return NULL;
+            }
 		}
 	}
 	

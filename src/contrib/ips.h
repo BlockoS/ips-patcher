@@ -9,6 +9,7 @@
  */ 
 typedef enum
 {
+    IPS_ERROR_INVALID   = -9,
 	IPS_ERROR_OFFSET    = -8,
 	IPS_ERROR_PROCESS   = -7,
 	IPS_ERROR_READ      = -6,
@@ -21,71 +22,67 @@ typedef enum
 	IPS_OK              =  1
 } IPSResult;
 
-#define IPS_RECORD_OFFSET(record) ((record).offset & 0x00ffffff)
-#define IPS_RECORD_INFO(record) (((record).offset >> 24) & 0xff)
-#define IPS_RECORD_RLE 1
+/**
+ * IPS starting point for positioning functions.
+ */
+typedef enum
+{
+    IPS_SET = 0,
+    IPS_CUR,
+    IPS_END
+} IPSWhence;
+
+struct IPSPatch;
 
 /**
  * IPS record.
  */
 struct IPSRecord
 {
-	uint32_t offset;  /**< Destination offset */
-	uint16_t size;    /**< Size of the data to be replaced */
-	uint8_t  rleData; /**< RLE encoded byte */
+    uint32_t data;   /**< Offset of the patch data in IPS file. */
+	uint32_t offset; /**< Destination offset. */
+	uint16_t size;   /**< Size of the data to be replaced. */
 };
 
 /**
- * IPS patch helper.
+ * Apply IPS patch to target file.
  */
-struct IPSPatch
-{
-	FILE             *rom;     /**< File to be patched */
-	size_t            romSize; /**< Input file size */
-	FILE             *patch;   /**< IPS file */
-	struct IPSRecord  record;  /**< Current IPS record */
-};
+IPSResult IPSApply(const char *patchFilename, const char *targetFilename);
 
-/* 
- * Reset ips patch structure
+/**
+ * Open IPS patch.
  */
-void IPSReset(struct IPSPatch *ips);
+IPSResult IPSOpen(struct IPSPatch *patch, const char *filename);
 
-/*
- * Open rom and patch
+/**
+ * Close IPS patch.
  */
-IPSResult IPSOpen(struct IPSPatch *ips,
-                  const char *patchName,
-                  const char *romName);
-   
-/*
- * Close patch and rom files 
- */           
-void IPSClose(struct IPSPatch *ips);
+IPSResult IPSClose(struct IPSPatch *patch);
 
-/*
- * Read IPS record from file
+/**
+ * Get the number of records stored in the patch.
  */
-IPSResult IPSReadRecord(struct IPSPatch *ips);
+IPSResult IPSGetRecordCount(struct IPSPatch *patch, int *count);
 
-/*
- * Process current record
+/**
+ * Jump to a given record.
  */
-IPSResult IPSProcessRecord (struct IPSPatch *ips);
+IPSResult IPSSeekTo(struct IPSPatch *patch, off_t record, IPSWhence whence);
 
-/*
- * Open the file and write IPS header in i
+/**
+ * Read record infos.
+ * The next call will fetch the next record.
  */
-IPSResult IPSWriteBegin(FILE** out, char* filename);
+IPSResult IPSReadInfos(struct IPSPatch *patch, struct IPSRecord *record);
 
-/*
- * Append a new record to IPS file
+/**
+ * Read record data.
  */
-IPSResult IPSWriteRecord (FILE* out, uint32_t offset, uint16_t size, uint8_t *data);
+IPSResult IPSReadData(struct IPSPatch *patch, struct IPSRecord *record, uint8_t *data);
 
-/*
- * Write IPS footer and close file.
+/**
+ * Add a record to ips file.
  */
-IPSResult IPSWriteEnd(FILE** out);
+IPSResult IPSAddRecord(struct IPSPatch *patch, uint32_t offset, uint16_t size, const uint8_t* data);
 
 #endif /* _IPS_H_ */
