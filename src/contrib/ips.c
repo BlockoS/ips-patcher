@@ -20,6 +20,7 @@ struct IPSPatch
 void IPSCleanup(struct IPSPatch *patch)
 {
     patch->size = 0;
+    patch->status = 0;
     if(patch->source != NULL)
     {
         fclose(patch->source);
@@ -304,14 +305,105 @@ IPSResult IPSAddRecord(struct IPSPatch *patch, uint32_t offset, uint16_t size, c
     return IPS_OK;
 }
 
-// [todo]
-
 /**
  * Jump to a given record.
  */
-//IPSResult IPSSeekTo(struct IPSPatch *patch, off_t record, IPSWhence whence);
+IPSResult IPSSeekTo(struct IPSPatch *patch, unsigned int recordNum)
+{
+    off_t backup;
+    int i;
+    IPSResult res;
+    struct IPSRecord record;
+    
+    backup = ftell(patch->source);
+    
+    fseek(patch->source, IPS_HEADER_LEN, SEEK_SET);
+    for(i=0; (i<recordNum) && (res == IPS_OK); i++)
+    {
+        res = IPSReadInfos(patch, &record);
+    }
+    
+    fseek(patch->source, backup, SEEK_SET);
+    
+    return res;
+}
+
+/**
+ * Apply current record.
+ */
+IPSResult IPSApplyRecord(struct IPSPatch *patch, struct IPSRecord *record, FILE* out)
+{
+    // [todo] expand rom if needed
+    unsigned int i;
+    IPSResult res = IPS_OK;
+    size_t offset = IPS_RECORD_OFFSET(*record);
+    size_t nWritten;
+    
+    fseek(patch->source, record->data, SEEK_SET);
+    fseek(out, offset, SEEK_SET);
+    if(IPS_RECORD_INFO(*record) == IPS_RECORD_RLE)
+    {
+        uint8_t data;
+        
+        res = IPSReadRLE(patch, record, &data);
+        for(i=0; (i<record->size) && (res == IPS_OK); i++)
+        {
+            nWritten = fwrite(&data, 1, 1, out);
+            if(nWritten != 1)
+            {
+                res = IPS_ERROR_WRITE;
+            }
+        }
+    }
+    else
+    {
+        size_t nRead, nElmnt;
+        uint8_t buffer[64];
+        
+        for(i=record->size; (i>0) && (res == IPS_OK); i-=nRead)
+        {
+            nElmnt = (i < 64) ? i : 64;
+            nRead = fread (buffer, 1, nElmnt, patch->source);
+            if(nRead != nElmnt)
+            {
+                res = IPS_ERROR_READ;
+            }
+            else
+            {
+                nWritten = fwrite(buffer, 1, nRead, out);
+                if(nWritten != nRead)
+                {
+                    res = IPS_ERROR_WRITE;
+                }
+            }
+        }
+    }
+
+    return res;
+}
 
 /**
  * Apply IPS patch to target file.
  */
-//IPSResult IPSApply(const char *patchFilename, const char *targetFilename);
+IPSResult IPSApply(const char *patchFilename, const char *targetFilename)
+{
+    struct IPSPatch patch;
+    IPSResult res;
+    FILE *output;
+    
+    output = fopen(targetFilename, "rb+");
+    if(output != NULL)
+    {
+        return IPS_ERROR_OPEN;
+    }
+    
+    res = IPSOpen(&patch, patchFilename);
+    if(res != IPS_OK)
+    {
+        return res;
+    }
+    
+    // [todo] apply records
+    
+    return res;
+}

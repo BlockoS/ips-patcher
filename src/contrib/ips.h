@@ -22,16 +22,6 @@ typedef enum
 	IPS_OK              =  1
 } IPSResult;
 
-/**
- * IPS starting point for positioning functions.
- */
-typedef enum
-{
-    IPS_SET = 0,
-    IPS_CUR,
-    IPS_END
-} IPSWhence;
-
 struct IPSPatch;
 
 /**
@@ -67,7 +57,7 @@ IPSResult IPSGetRecordCount(struct IPSPatch *patch, int *count);
 /**
  * Jump to a given record.
  */
-IPSResult IPSSeekTo(struct IPSPatch *patch, off_t record, IPSWhence whence);
+IPSResult IPSSeekTo(struct IPSPatch *patch, unsigned int recordNum);
 
 /**
  * Read record infos.
@@ -84,5 +74,10 @@ IPSResult IPSReadData(struct IPSPatch *patch, struct IPSRecord *record, uint8_t 
  * Add a record to ips file.
  */
 IPSResult IPSAddRecord(struct IPSPatch *patch, uint32_t offset, uint16_t size, const uint8_t* data);
+
+/**
+ * Apply current record.
+ */
+IPSResult IPSApplyRecord(struct IPSPatch *patch, struct IPSRecord *record, FILE* out);
 
 #endif /* _IPS_H_ */
