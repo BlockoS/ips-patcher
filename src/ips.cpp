@@ -13,6 +13,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library.
  */
+#include <algorithm>
 #include "ips.h"
 
 namespace IPS {
@@ -44,5 +45,80 @@ Record::Record(uint32_t offset, uint16_t size, uint8_t data)
     , offset(offset)
     , size(size)
 {}
+
+/**
+ * Default constructor.
+ */
+Patch::Patch()
+    : _records()
+{}
+/**
+ * Destructor.
+ */
+Patch::~Patch()
+{}
+/**
+ * Add record to patch.
+ * @param [in] record  Record 
+ * @return @b false if the record overlaps the ones already
+ *         stored in the patch.
+ */
+bool Patch::add(Record const& record)
+{
+    if(false == _records.empty())
+    {
+        // Find the right spot.
+        int m0 = 2*record.offset + record.size;
+        for(size_t i=0; i<_records.size(); i++)
+        {
+            int m1 = 2*_records[i].offset + _records[i].size;
+            int w  = record.size + _records[i].size;
+            bool overlap =  (abs(m0 - m1) <= w);
+            if(overlap)
+            {
+                return false;
+            }
+            if(_records[i].offset > record.offset)
+            {
+                _records.insert(_records.begin()+i, record);
+                return true;
+            }
+        }
+    } 
+    _records.push_back(record);
+    return true;
+}
+
+/**
+ * Remove record from patch.
+ * @param [in] record  Record to be removed.
+ * @return @b false if the record is not in the patch.
+ */
+bool Patch::remove(Record const& record)
+{
+    // [todo]
+    return true;
+}
+/**
+ * Returns the number of record in the patch.
+ */
+size_t Patch::count() const
+{
+    return _records.size();
+}
+/**
+ * Access the record at the index @b i .
+ */
+Record& Patch::operator[] (size_t i)
+{
+    return _records[i];
+}
+/**
+ * Access the record at the index @b i .
+ */
+Record const& Patch::operator[] (size_t i) const
+{
+    return _records[i];
+}
 
 } // namespace IPS

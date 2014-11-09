@@ -16,7 +16,9 @@
 #ifndef _IPS_H_
 #define _IPS_H_
 
+#include <cstddef>
 #include <cstdint>
+#include <vector>
 
 namespace IPS {
 
@@ -65,6 +67,50 @@ struct Record
      * @param [in]  data   Data byte.
      */
     Record(uint32_t offset, uint16_t size, uint8_t data);
+};
+
+/**
+ * An IPS patch is basically a list of records.
+ */
+class Patch
+{
+    public:
+        /**
+         * Default constructor.
+         */
+        Patch();
+        /**
+         * Destructor.
+         */
+        ~Patch();
+        /**
+         * Add record to patch.
+         * @param [in] record  Record 
+         * @return @b false if the record overlaps the ones already
+         *         stored in the patch.
+         */
+        bool add(Record const& record);
+        /**
+         * Remove record from patch.
+         * @param [in] record  Record to be removed.
+         * @return @b false if the record is not in the patch.
+         */
+        bool remove(Record const& record);
+        /**
+         * Returns the number of record in the patch.
+         */
+        size_t count() const;
+        /**
+         * Access the record at the index @b i .
+         */
+        Record& operator[] (size_t i);
+        /**
+         * Access the record at the index @b i .
+         */
+        Record const& operator[] (size_t i) const;        
+    private:
+        /** Record array. **/
+        std::vector<Record> _records;
 };
 
 } // namespace IPS
