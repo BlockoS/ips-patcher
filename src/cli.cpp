@@ -23,5 +23,7 @@ int main()
     ret = patch.add(IPS::Record(8, 21, (uint8_t)0));
     if(true == ret) { std::cerr << "F" << std::endl; }
 
+    ret = patch.remove(1);
+
     return 0;
 }

@@ -1,16 +1,1 @@
---: ips-patcher :--
-Vincent 'MooZ' Cruz - 20/11/2007 
-mail : cruz.vincent AT gmail DOT com
-See COPYING file for the licence.
 
-To install it :
-./autogen.sh
-./configure
-./make
-./make install
-
-Run it by typing :
-ips-patcher
-
-The original rom is automatically backuped in 'you_rom'.sav each time you apply
-a patch.

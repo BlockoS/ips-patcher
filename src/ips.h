@@ -91,11 +91,11 @@ class Patch
          */
         bool add(Record const& record);
         /**
-         * Remove record from patch.
-         * @param [in] record  Record to be removed.
-         * @return @b false if the record is not in the patch.
+         * Remove the record at b index.
+         * @param [in] index  Record index.
+         * @return @b false if the index is out of bound.
          */
-        bool remove(Record const& record);
+        bool remove(size_t index);
         /**
          * Returns the number of record in the patch.
          */

@@ -90,13 +90,17 @@ bool Patch::add(Record const& record)
 }
 
 /**
- * Remove record from patch.
- * @param [in] record  Record to be removed.
- * @return @b false if the record is not in the patch.
+ * Remove the record at b index.
+ * @param [in] index  Record index.
+ * @return @b false if the index is out of bound.
  */
-bool Patch::remove(Record const& record)
+bool Patch::remove(size_t index)
 {
-    // [todo]
+    if(index >= _records.size())
+    {
+        return false;
+    }
+    _records.erase(_records.begin()+index);
     return true;
 }
 /**
