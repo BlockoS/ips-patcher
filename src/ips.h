@@ -51,6 +51,10 @@ struct Record
     uint16_t  size;   /**< Data size. */
     
     /**
+     * Default constructor.
+     */
+    Record();
+    /**
      * Creates a standard record.
      * @param [in]  offset  Destination offset.
      * @param [in]  size    Data size.
@@ -90,6 +94,7 @@ class Patch
          *         stored in the patch.
          */
         bool add(Record const& record);
+        // [todo] get overlapping records
         /**
          * Remove the record at b index.
          * @param [in] index  Record index.

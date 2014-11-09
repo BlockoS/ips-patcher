@@ -17,7 +17,15 @@
 #include "ips.h"
 
 namespace IPS {
-
+/**
+ * Default constructor.
+ */
+Record::Record()
+    : rle(false)
+    , data(0)
+    , offset(0)
+    , size(0)
+{}
 /**
  * Creates a standard record.
  * @param [in]  offset  Destination offset.
@@ -73,7 +81,7 @@ bool Patch::add(Record const& record)
         {
             int m1 = 2*_records[i].offset + _records[i].size;
             int w  = record.size + _records[i].size;
-            bool overlap =  (abs(m0 - m1) <= w);
+            bool overlap =  (abs(m0 - m1) < w);
             if(overlap)
             {
                 return false;

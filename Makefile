@@ -22,17 +22,21 @@ OBJDIR = $(OUTDIR)/obj
 
 LIBS = -lm
 
-EXE_SRC := src/ips.cpp
+EXE_SRC := src/log.cpp src/ips.cpp src/io.cpp
 OBJS    := $(EXE_SRC:.cpp=.o)
 EXE_OBJ := $(addprefix $(OBJDIR)/, $(OBJS))
 EXE     := $(OUTDIR)/$(BIN)
-EXE_CLI := $(OUTDIR)/$(BIN_CLI)
+
+EXE_SRC_CLI := src/cli.cpp
+OBJS_CLI    := $(EXE_SRC_CLI:.cpp=.o)
+EXE_OBJ_CLI := $(addprefix $(OBJDIR)/, $(OBJS_CLI))
+EXE_CLI     := $(OUTDIR)/$(BIN_CLI)
 
 all: $(EXE_CLI)
 
-$(EXE_CLI): $(EXE_OBJ)
+$(EXE_CLI): $(EXE_OBJ) $(EXE_OBJ_CLI)
 	@$(ECHO) "	LD	$@"
-	@$(CXX) $(CXXFLAGS) -o $(EXE_CLI) src/cli.cpp $^ $(LIBS)
+	@$(CXX) $(CXXFLAGS) -o $(EXE_CLI) $^ $(LIBS)
 
 $(OBJDIR)/%.o: %.cpp
 	@$(ECHO) "	C++	$<"
@@ -40,6 +44,8 @@ $(OBJDIR)/%.o: %.cpp
 	@$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 $(EXE_OBJ): | $(OBJDIR) $(OUTDIR)
+
+$(EXE_OBJ_CLI): | $(OBJDIR) $(OUTDIR)
 
 $(OUTDIR):
 	@mkdir -p $(OUTDIR)
