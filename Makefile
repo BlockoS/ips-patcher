@@ -3,8 +3,8 @@ CXXFLAGS = -std=c++11 -W -Wall
 
 ECHO = echo
 
-BIN     = ips-patcher
 BIN_CLI = ips-patcher-cli
+BIN_GUI = ips-patcher
 
 BUILD_DIR = build
 
@@ -22,30 +22,29 @@ OBJDIR = $(OUTDIR)/obj
 
 LIBS = -lm
 
-EXE_SRC := src/log.cpp src/ips.cpp src/io.cpp
-OBJS    := $(EXE_SRC:.cpp=.o)
-EXE_OBJ := $(addprefix $(OBJDIR)/, $(OBJS))
-EXE     := $(OUTDIR)/$(BIN)
+SRC      := src/log.cpp src/ips.cpp src/io.cpp
+OBJS     := $(SRC:.cpp=.o)
+OBJ_BASE := $(addprefix $(OBJDIR)/, $(OBJS))
 
-EXE_SRC_CLI := src/cli.cpp
-OBJS_CLI    := $(EXE_SRC_CLI:.cpp=.o)
-EXE_OBJ_CLI := $(addprefix $(OBJDIR)/, $(OBJS_CLI))
-EXE_CLI     := $(OUTDIR)/$(BIN_CLI)
+SRC_CLI  := src/cli.cpp
+OBJS_CLI := $(SRC_CLI:.cpp=.o)
+OBJ_CLI  := $(addprefix $(OBJDIR)/, $(OBJS_CLI))
+EXE_CLI  := $(OUTDIR)/$(BIN_CLI)
 
-all: $(EXE_CLI)
+all: $(EXE_CLI) 
 
-$(EXE_CLI): $(EXE_OBJ) $(EXE_OBJ_CLI)
+$(EXE_CLI): $(OBJ_BASE) $(OBJ_CLI)
 	@$(ECHO) "	LD	$@"
 	@$(CXX) $(CXXFLAGS) -o $(EXE_CLI) $^ $(LIBS)
 
 $(OBJDIR)/%.o: %.cpp
 	@$(ECHO) "	C++	$<"
 	@$(shell mkdir -p `dirname $@`)
-	@$(CXX) $(CXXFLAGS) -c -o $@ $<
+	@$(CXX) $(CXXFLAGS) $(CXXFLAGS_GUI) -c -o $@ $<
 
-$(EXE_OBJ): | $(OBJDIR) $(OUTDIR)
+$(OBJ_BASE): | $(OBJDIR) $(OUTDIR)
 
-$(EXE_OBJ_CLI): | $(OBJDIR) $(OUTDIR)
+$(OBJ_CLI): | $(OBJDIR) $(OUTDIR)
 
 $(OUTDIR):
 	@mkdir -p $(OUTDIR)

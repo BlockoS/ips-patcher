@@ -24,7 +24,7 @@
  */
 void usage()
 {
-    std::cerr << "usage: ips-patcher-cli source destination patch" << std::endl;
+    std::cerr << "usage: ips-patcher-cli source patch destination" << std::endl;
     std::cerr << "       Apply IPS patch to \"source\" file and write output to \"destination\"." << std::endl;
 }
 
@@ -90,6 +90,8 @@ bool apply(const char* in, const char* out, IPS::Patch const& patch)
     for(size_t i=0; ret && (i<patch.count()); i++)
     {
         IPS::Record const& record = patch[i];
+        Info("Applying record: %5d    offset: %08x    size: %5d    rle: %s", i, record.offset, record.size, record.rle ? "yes" : "no");
+        
         fseek(output, record.offset, SEEK_SET);
         if(record.rle)
         {
@@ -138,14 +140,14 @@ int main(int argc, char** argv)
     
     logger.begin(output);
     
-    ret = io.read(argv[3], patch);
+    ret = io.read(argv[2], patch);
     if(false == ret)
     {
-        Error("Failed to read %s", argv[3]);
+        Error("Failed to read %s", argv[2]);
     }
     else
     {
-        apply(argv[1], argv[2], patch);
+        apply(argv[1], argv[3], patch);
     }
     
     logger.end();
