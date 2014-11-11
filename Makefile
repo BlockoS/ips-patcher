@@ -22,7 +22,7 @@ OBJDIR = $(OUTDIR)/obj
 
 LIBS = -lm
 
-SRC      := src/log.cpp src/ips.cpp src/io.cpp
+SRC      := src/log.cpp src/ips.cpp src/io.cpp src/utils.cpp
 OBJS     := $(SRC:.cpp=.o)
 OBJ_BASE := $(addprefix $(OBJDIR)/, $(OBJS))
 

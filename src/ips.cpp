@@ -68,12 +68,13 @@ Patch::~Patch()
 /**
  * Add record to patch.
  * @param [in] record  Record 
+ * @param [in] check   If @b true check if records overlap.
  * @return @b false if the record overlaps the ones already
  *         stored in the patch.
  */
-bool Patch::add(Record const& record)
+bool Patch::add(Record const& record, bool check)
 {
-    if(false == _records.empty())
+    if((false == _records.empty()) && check)
     {
         // Find the right spot.
         int m0 = 2*record.offset + record.size;

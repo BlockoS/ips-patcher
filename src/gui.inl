@@ -1,13 +1,25 @@
+/*
+ * IPS Patcher
+ * 
+ * Copyright (c) 2014, Vincent Cruz, All rights reserved.
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3.0 of the License, or (at your option) any later version.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library.
+ */
+// This string contains the content of resources/ips-patcher.ui
+static const char* g_resources = R"(
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <!-- interface-requires gtk+ 3.0 -->
-  <object class="GtkFileFilter" id="ipsFilter">
-    <patterns>
-      <pattern>*.ips</pattern>
-    </patterns>
-  </object>
   <object class="GtkWindow" id="IPS Patcher">
-    <property name="width_request">360</property>
+    <property name="width_request">480</property>
     <property name="can_focus">False</property>
     <property name="resizable">False</property>
     <property name="has_resize_grip">False</property>
@@ -22,6 +34,10 @@
           <object class="GtkGrid" id="fileGrid">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
+            <property name="margin_left">4</property>
+            <property name="margin_right">4</property>
+            <property name="margin_top">4</property>
+            <property name="margin_bottom">4</property>
             <property name="hexpand">True</property>
             <property name="row_spacing">2</property>
             <property name="column_spacing">2</property>
@@ -97,61 +113,39 @@
               </packing>
             </child>
             <child>
-              <object class="GtkButton" id="outputFileButton">
-                <property name="use_action_appearance">False</property>
+              <object class="GtkBox" id="outputFileBox">
                 <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <property name="use_action_appearance">False</property>
+                <property name="can_focus">False</property>
+                <property name="margin_top">4</property>
+                <property name="margin_bottom">4</property>
+                <property name="spacing">4</property>
                 <child>
-                  <object class="GtkBox" id="box2">
+                  <object class="GtkEntry" id="outputFileEntry">
                     <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <child>
-                      <object class="GtkLabel" id="outputFileLabel">
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="xpad">4</property>
-                        <property name="label" translatable="yes">(None)</property>
-                        <property name="use_markup">True</property>
-                        <property name="single_line_mode">True</property>
-                        <property name="track_visited_links">False</property>
-                      </object>
-                      <packing>
-                        <property name="expand">False</property>
-                        <property name="fill">True</property>
-                        <property name="position">0</property>
-                      </packing>
-                    </child>
-                    <child>
-                      <object class="GtkImage" id="image1">
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="stock">gtk-open</property>
-                        <property name="icon-size">1</property>
-                      </object>
-                      <packing>
-                        <property name="expand">False</property>
-                        <property name="fill">True</property>
-                        <property name="pack_type">end</property>
-                        <property name="position">1</property>
-                      </packing>
-                    </child>
-                    <child>
-                      <object class="GtkSeparator" id="separator1">
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="margin_right">4</property>
-                        <property name="orientation">vertical</property>
-                      </object>
-                      <packing>
-                        <property name="expand">False</property>
-                        <property name="fill">True</property>
-                        <property name="pack_type">end</property>
-                        <property name="position">2</property>
-                      </packing>
-                    </child>
+                    <property name="can_focus">True</property>
+                    <property name="hexpand">True</property>
+                    <property name="invisible_char">●</property>
                   </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkButton" id="outputFileButton">
+                    <property name="use_action_appearance">False</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">True</property>
+                    <property name="use_action_appearance">False</property>
+                    <property name="image">outputFileImage</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">1</property>
+                  </packing>
                 </child>
               </object>
               <packing>
@@ -227,11 +221,31 @@
           </packing>
         </child>
         <child>
-          <object class="GtkStatusbar" id="statusbar">
+          <object class="GtkScrolledWindow" id="logWindow">
             <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="orientation">vertical</property>
-            <property name="spacing">2</property>
+            <property name="can_focus">True</property>
+            <property name="min_content_height">56</property>
+            <child>
+              <object class="GtkViewport" id="logViewport">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <child>
+                  <object class="GtkBox" id="logBox">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="margin_left">4</property>
+                    <property name="margin_right">4</property>
+                    <property name="margin_top">4</property>
+                    <property name="margin_bottom">4</property>
+                    <property name="orientation">vertical</property>
+                    <property name="spacing">2</property>
+                    <child>
+                      <placeholder/>
+                    </child>
+                  </object>
+                </child>
+              </object>
+            </child>
           </object>
           <packing>
             <property name="expand">False</property>
@@ -242,4 +256,16 @@
       </object>
     </child>
   </object>
+  <object class="GtkFileFilter" id="ipsFilter">
+    <patterns>
+      <pattern>*.ips</pattern>
+    </patterns>
+  </object>
+  <object class="GtkImage" id="outputFileImage">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="stock">gtk-open</property>
+    <property name="icon-size">1</property>
+  </object>
 </interface>
+)";

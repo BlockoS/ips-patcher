@@ -90,10 +90,11 @@ class Patch
         /**
          * Add record to patch.
          * @param [in] record  Record 
+         * @param [in] check   If @b true check if records overlap.
          * @return @b false if the record overlaps the ones already
          *         stored in the patch.
          */
-        bool add(Record const& record);
+        bool add(Record const& record, bool check=true);
         // [todo] get overlapping records
         /**
          * Remove the record at b index.
